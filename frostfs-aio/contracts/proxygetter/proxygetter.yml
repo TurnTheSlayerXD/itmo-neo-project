@@ -1,0 +1,13 @@
+name: "Proxygetter contract"
+supportedstandards: []
+events:
+  - name: setToTestNumber
+    parameters:
+      - name: groupID
+        type: Integer
+      - name: groupName
+        type: String
+      - name: TestLength
+        type: Integer
+permissions:
+  - methods: ["request", "update"]

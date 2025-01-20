@@ -1,0 +1,8 @@
+name: "Storage Counter contract"
+sourceurl: https://git.frostfs.info/Web3N3/web3-course
+supportedstandards: []
+events:
+  - name: info
+    parameters:
+      - name: message
+        type: ByteString
