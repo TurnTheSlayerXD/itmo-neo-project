@@ -1,0 +1,7 @@
+wallet: "../wallets/wallet.json"
+password: ""
+rpc_endpoint: "http://localhost:30333"
+rpc_endpoint_ws: "ws://localhost:30333/ws"
+task_contract: "f167e80e620a70b47cd6f8c8e37229107dfab340"
+solution_contract: "f167e80e620a70b47cd6f8c8e37229107dfab340"
+listen_address: ":5555"

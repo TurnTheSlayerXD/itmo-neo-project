@@ -1,8 +1,12 @@
 module backend
 
-go 1.22
+go 1.23
+
+toolchain go1.23.4
 
 require github.com/nspcc-dev/neo-go v0.107.1
+
+require github.com/gorilla/securecookie v1.1.2 // indirect
 
 require (
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20221202181307-76fa05c21b12 // indirect
@@ -12,6 +16,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/sessions v1.4.0
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/holiman/uint256 v1.3.1 // indirect

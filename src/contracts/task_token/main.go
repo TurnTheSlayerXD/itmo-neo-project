@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/interop/iterator"
 	"github.com/nspcc-dev/neo-go/pkg/interop/native/crypto"
 	"github.com/nspcc-dev/neo-go/pkg/interop/native/gas"
-	"github.com/nspcc-dev/neo-go/pkg/interop/native/ledger"
 	"github.com/nspcc-dev/neo-go/pkg/interop/native/management"
 	"github.com/nspcc-dev/neo-go/pkg/interop/native/std"
 	"github.com/nspcc-dev/neo-go/pkg/interop/runtime"
@@ -29,13 +28,10 @@ const (
 	minNameLen     = 3
 )
 
-type NFTItem struct {
+type NFTTask struct {
 	ID            []byte
 	Owner         interop.Hash160
 	Name          string
-	PrevOwners    int
-	Created       int
-	Bought        int
 	Tests         string
 	NSolutions    int
 	AverAssesment int
@@ -47,20 +43,8 @@ func _deploy(data interface{}, isUpdate bool) {
 		return
 	}
 
-	args := data.(struct {
-		Admin interop.Hash160
-	})
-
-	if args.Admin == nil {
-		panic("invalid admin")
-	}
-
-	if len(args.Admin) != 20 {
-		panic("invalid admin hash length")
-	}
-
 	ctx := storage.GetContext()
-	storage.Put(ctx, ownerKey, args.Admin)
+	storage.Put(ctx, ownerKey, runtime.GetCallingScriptHash())
 	storage.Put(ctx, totalSupplyKey, 0)
 }
 
@@ -103,9 +87,6 @@ func Properties(token []byte) map[string]string {
 		"id":            string(nft.ID),
 		"owner":         ownerAddress(nft.Owner),
 		"name":          nft.Name,
-		"prevOwners":    std.Itoa10(nft.PrevOwners),
-		"created":       std.Itoa10(nft.Created),
-		"bought":        std.Itoa10(nft.Bought),
 		"Tests":         string(nft.Tests),
 		"Description":   string(nft.Description),
 		"NSolutions":    std.Itoa10(nft.NSolutions),
@@ -176,8 +157,6 @@ func Transfer(to interop.Hash160, token []byte, data any) bool {
 
 	if !from.Equals(to) {
 		nft.Owner = to
-		nft.Bought = ledger.CurrentIndex()
-		nft.PrevOwners += 1
 		setNFT(ctx, token, nft)
 
 		addToBalance(ctx, from, -1)
@@ -191,7 +170,7 @@ func Transfer(to interop.Hash160, token []byte, data any) bool {
 	return true
 }
 
-func getNFT(ctx storage.Context, token []byte) NFTItem {
+func getNFT(ctx storage.Context, token []byte) NFTTask {
 	key := mkTokenKey(token)
 	val := storage.Get(ctx, key)
 	if val == nil {
@@ -200,7 +179,7 @@ func getNFT(ctx storage.Context, token []byte) NFTItem {
 
 	serializedNFT := val.([]byte)
 	deserializedNFT := std.Deserialize(serializedNFT)
-	return deserializedNFT.(NFTItem)
+	return deserializedNFT.(NFTTask)
 }
 
 func nftExists(ctx storage.Context, token []byte) bool {
@@ -208,7 +187,7 @@ func nftExists(ctx storage.Context, token []byte) bool {
 	return storage.Get(ctx, key) != nil
 }
 
-func setNFT(ctx storage.Context, token []byte, item NFTItem) {
+func setNFT(ctx storage.Context, token []byte, item NFTTask) {
 	key := mkTokenKey(token)
 	val := std.Serialize(item)
 	storage.Put(ctx, key, val)
@@ -260,13 +239,10 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 		panic("token already exists")
 	}
 
-	nft := NFTItem{
+	nft := NFTTask{
 		ID:            tokenID,
 		Owner:         from,
 		Name:          input_data.Name,
-		PrevOwners:    0,
-		Created:       ledger.CurrentIndex(),
-		Bought:        ledger.CurrentIndex(),
 		Tests:         input_data.Tests,
 		Description:   input_data.Description,
 		NSolutions:    0,
