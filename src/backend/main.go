@@ -1,31 +1,16 @@
 package main
 
 import (
-	// "context"
-	// "math/big"
-	// "os"
-	// "os/signal"
-	// "runtime/debug"
-	// "strconv"
-
-	// "github.com/nspcc-dev/neo-go/pkg/rpcclient"
-	// "github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
-	// "github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
-	// "github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
-	// "github.com/nspcc-dev/neo-go/pkg/util"
-	// "github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-
 	"encoding/json"
+	"math/big"
 	"os"
 	"os/signal"
 	"runtime/debug"
 	"syscall"
 
-	// "github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	// "github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
-	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 
 	"context"
@@ -35,6 +20,7 @@ import (
 	"net/http"
 
 	"backend/wrappers/solutiontoken"
+	"backend/wrappers/tasktoken"
 )
 
 var (
@@ -43,15 +29,15 @@ var (
 
 func main() {
 
-	Listen(nil)
-
 	ctx, _ := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM)
 	rpcCli, err := rpcclient.New(ctx, "http://localhost:30333", rpcclient.Options{})
 
-	solutionContract := solutiontoken.New(act)
+	if err != nil {
+		die(err)
+	}
 
-	die(err)
+	Listen(rpcCli)
 
 }
 
@@ -110,29 +96,67 @@ func Listen(rpc *rpcclient.Client) error {
 			http_die(w, "requestToDict", err)
 			return
 		}
-		wal, acc, err := checkAuthentication(dict)
-
+		_, _, err = checkAuthentication(dict)
 		if err != nil {
 			http_die(w, "checkAuthentication", err)
 		}
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	http.HandleFunc("/add_task", func(writer http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/add_task", func(w http.ResponseWriter, r *http.Request) {
 
-		dict, err := requestToDict(r)
+		smt, err := requestToDict(r)
+		dict := *smt
 		if err != nil {
 			http_die(w, "requestToDict", err)
 			return
 		}
-		wal, acc, err := checkAuthentication(dict)
-		act, err := actor.NewSimple(rpc, acc)
+		_, acc, err := checkAuthentication(&dict)
 
-		
+		if err != nil {
+			http_die(w, "checkAuthentication", err)
+			return
+		}
+
+		act, err := actor.NewSimple(rpc, &acc)
+		if err != nil {
+			http_die(w, "newSimpleActor", err)
+			return
+		}
+
+		data := &struct {
+			Name        string
+			Tests       []byte
+			Description string
+		}{
+			Name:        dict["name"].(string),
+			Tests:       []byte(dict["tests"].(string)),
+			Description: dict["description"].(string),
+		}
+
+		json_dt, err := json.Marshal(data)
+
+		if err != nil {
+			die(err)
+			return
+		}
+
+		contractGas := gas.New(act)
+		_, _, err = contractGas.Transfer(act.Sender(),
+			tasktoken.Hash, big.NewInt(10_0000_0000), json_dt)
+
+		if err != nil {
+			http_die(w, "Transfer", err)
+			die(err)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, "Successful")
 
 	})
 
-	return http.ListenAndServe("localhost:8040", nil)
+	http.ListenAndServe("localhost:8040", nil)
+	return nil
 }
 
 func requestToDict(r *http.Request) (*map[string]any, error) {
@@ -152,30 +176,30 @@ func requestToDict(r *http.Request) (*map[string]any, error) {
 	return &smt, nil
 }
 
-func checkAuthentication(f *map[string]any) (*wallet.Wallet, *wallet.Account, error) {
+func checkAuthentication(f *map[string]any) (wallet.Wallet, wallet.Account, error) {
 	smt := *f
 	wallet_dt, ok := smt["wallet"]
 	if !ok {
 		err := errors.New("missing field in json")
 		logger("wallet", err)
-		return nil, nil, err
+		return wallet.Wallet{}, wallet.Account{}, err
 	}
 	wallet_dt, err := json.Marshal(wallet_dt)
 	if err != nil {
 		logger("Marshal", err)
-		return nil, nil, err
+		return wallet.Wallet{}, wallet.Account{}, err
 	}
 
 	password, ok := smt["password"].(string)
 	if !ok {
 		logger("passwordParsing", err)
-		return nil, nil, err
+		return wallet.Wallet{}, wallet.Account{}, err
 	}
 	wal, err := wallet.NewWalletFromBytes(wallet_dt.([]byte))
 
 	if err != nil {
 		logger("NewWalletFromBytes", err)
-		return nil, nil, err
+		return wallet.Wallet{}, wallet.Account{}, err
 	}
 
 	acc := wal.GetAccount(wal.GetChangeAddress())
@@ -184,9 +208,9 @@ func checkAuthentication(f *map[string]any) (*wallet.Wallet, *wallet.Account, er
 
 	if err != nil {
 		logger("Decrypt", err)
-		return nil, nil, err
+		return wallet.Wallet{}, wallet.Account{}, err
 	}
-	return wal, acc, nil
+	return *wal, *acc, nil
 }
 
 func http_die(writer http.ResponseWriter, error_type string, err error) {

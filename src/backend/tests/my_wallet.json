@@ -29,5 +29,10 @@
             "Tokens": null
         }
     },
-    "password": "and"
+    "password": "and",
+    "name": "test_task",
+    "tests": "some tests",
+    "description": "some description"
 }
+
+

@@ -13,4 +13,4 @@ events:
       - name: tokenId
         type: ByteArray
 permissions:
-  - methods: ["onNEP11Payment", "transfer"]
+  - methods: ["onNEP11Payment", "transfer", "changeTaskAssesment"]

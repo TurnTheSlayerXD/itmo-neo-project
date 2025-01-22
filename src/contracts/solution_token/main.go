@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/interop/iterator"
 	"github.com/nspcc-dev/neo-go/pkg/interop/native/crypto"
 	"github.com/nspcc-dev/neo-go/pkg/interop/native/gas"
-	"github.com/nspcc-dev/neo-go/pkg/interop/native/ledger"
 	"github.com/nspcc-dev/neo-go/pkg/interop/native/management"
 	"github.com/nspcc-dev/neo-go/pkg/interop/native/std"
 	"github.com/nspcc-dev/neo-go/pkg/interop/runtime"
@@ -29,21 +28,30 @@ const (
 	minNameLen     = 3
 )
 
+var (
+	NFTtask_hash interop.Hash160
+)
+
 type NFTSolution struct {
 	ID            []byte
-	Taskid        []byte
+	TaskId        []byte
+	TaskAssesment int
 	Owner         interop.Hash160
-	Created       int
-	SrcCode       string
+	SrcCode       []byte
 	NAssesments   int
 	AverAssesment int
 	Description   string
 }
 
-func _deploy(data interface{}, isUpdate bool) {
+func _deploy(data any, isUpdate bool) {
 	if isUpdate {
 		return
 	}
+	NFTtask_hash = data.([]byte)
+	if len(NFTtask_hash) != 20 {
+		panic("NFTtask_hash len not equal 20")
+	}
+
 	ctx := storage.GetContext()
 	storage.Put(ctx, ownerKey, runtime.GetCallingScriptHash())
 	storage.Put(ctx, totalSupplyKey, 0)
@@ -51,7 +59,7 @@ func _deploy(data interface{}, isUpdate bool) {
 
 // Symbol returns token symbol, it's NICENAMES.
 func Symbol() string {
-	return "NICENAMES"
+	return "SOLUTION"
 }
 
 // Decimals returns token decimals, this NFT is non-divisible, so it's 0.
@@ -87,7 +95,7 @@ func Properties(token []byte) map[string]string {
 	result := map[string]string{
 		"id":            string(nft.ID),
 		"owner":         ownerAddress(nft.Owner),
-		"created":       std.Itoa10(nft.Created),
+		"taskAssesment": std.Itoa10(nft.TaskAssesment),
 		"SrcCode":       string(nft.SrcCode),
 		"Description":   string(nft.Description),
 		"NAssesments":   std.Itoa10(nft.NAssesments),
@@ -219,15 +227,19 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	}
 
 	input_data := data.(struct {
-		Taskid      []byte
-		SrcCode     string
-		Description string
+		Taskid        []byte
+		SrcCode       []byte
+		TaskAssesment int
+		Description   string
 	})
 
-	price := 10_0000_0000
+	price := 1_0000_0000
 
 	if amount < price {
 		panic("insufficient GAS for minting NFT")
+	} else if amount > price {
+		gas.Transfer(runtime.GetExecutingScriptHash(),
+			runtime.GetCallingScriptHash(), amount-price, nil)
 	}
 
 	ctx := storage.GetContext()
@@ -237,10 +249,10 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	}
 
 	nft := NFTSolution{
-		Taskid:        input_data.Taskid,
+		TaskId:        input_data.Taskid,
+		TaskAssesment: input_data.TaskAssesment,
 		ID:            tokenID,
 		Owner:         from,
-		Created:       ledger.CurrentIndex(),
 		SrcCode:       input_data.SrcCode,
 		Description:   input_data.Description,
 		NAssesments:   0,
@@ -254,9 +266,13 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	storage.Put(ctx, totalSupplyKey, total)
 
 	postTransfer(nil, from, tokenID, nil)
+
+	contract.Call(NFTtask_hash, "changeTaskAssesment", contract.All,
+		nft.TaskId, nft.TaskAssesment)
+
 }
 
-func ChangeTaskAssesment(tokenid []byte, newAssesmentNum int) {
+func ChangeSolutionAssesment(tokenid []byte, newAssesmentNum int) {
 	if newAssesmentNum < 0 || newAssesmentNum > 10 {
 		panic("Wrong assesment num")
 	}
@@ -273,7 +289,8 @@ func ChangeTaskAssesment(tokenid []byte, newAssesmentNum int) {
 	if prevAver < nft.AverAssesment {
 		reward += forSolutionGas
 	}
-	gas.Transfer(runtime.GetExecutingScriptHash(), runtime.GetCallingScriptHash(), forSolutionGas, nil)
+	gas.Transfer(runtime.GetExecutingScriptHash(), runtime.GetCallingScriptHash(),
+		forSolutionGas, nil)
 }
 
 // mkAccountPrefix creates DB key-prefix for the account tokens specified

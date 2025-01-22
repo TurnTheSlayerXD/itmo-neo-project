@@ -32,10 +32,10 @@ type NFTTask struct {
 	ID            []byte
 	Owner         interop.Hash160
 	Name          string
-	Tests         string
+	Tests         []byte
+	Description   string
 	NSolutions    int
 	AverAssesment int
-	Description   string
 }
 
 func _deploy(data interface{}, isUpdate bool) {
@@ -50,7 +50,7 @@ func _deploy(data interface{}, isUpdate bool) {
 
 // Symbol returns token symbol, it's NICENAMES.
 func Symbol() string {
-	return "NICENAMES"
+	return "TASK"
 }
 
 // Decimals returns token decimals, this NFT is non-divisible, so it's 0.
@@ -205,6 +205,8 @@ func postTransfer(from interop.Hash160, to interop.Hash160, token []byte, data a
 // this method directly, instead it's called by GAS contract when you transfer
 // GAS from your address to the address of this NFT contract.
 func OnNEP17Payment(from interop.Hash160, amount int, data any) {
+	panic("\nOnNEP17Payment CALLED\n")
+
 	defer func() {
 		if r := recover(); r != nil {
 			runtime.Log(r.(string))
@@ -217,10 +219,9 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 		panic("only GAS is accepted")
 	}
 
-	input_data := data.(struct {
+	input_data := std.JSONDeserialize(data.([]byte)).(struct {
 		Name        string
-		SrcCode     string
-		Tests       string
+		Tests       []byte
 		Description string
 	})
 	if len(input_data.Name) < 3 {
@@ -231,6 +232,9 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 
 	if amount < price {
 		panic("insufficient GAS for minting NFT")
+	} else if amount > price {
+		gas.Transfer(runtime.GetExecutingScriptHash(),
+			runtime.GetCallingScriptHash(), amount-price, nil)
 	}
 
 	ctx := storage.GetContext()
@@ -275,7 +279,7 @@ func ChangeTaskAssesment(tokenid []byte, newAssesmentNum int) {
 	if prevAver < nft.AverAssesment {
 		reward += forSolutionGas
 	}
-	gas.Transfer(runtime.GetExecutingScriptHash(), runtime.GetCallingScriptHash(), forSolutionGas, nil)
+	gas.Transfer(runtime.GetExecutingScriptHash(), nft.Owner, forSolutionGas, nil)
 }
 
 // mkAccountPrefix creates DB key-prefix for the account tokens specified
