@@ -32,7 +32,7 @@ type NFTTask struct {
 	ID            []byte
 	Owner         interop.Hash160
 	Name          string
-	Tests         []byte
+	Tests         string
 	Description   string
 	NSolutions    int
 	AverAssesment int
@@ -87,10 +87,10 @@ func Properties(token []byte) map[string]string {
 		"id":            string(nft.ID),
 		"owner":         ownerAddress(nft.Owner),
 		"name":          nft.Name,
-		"Tests":         string(nft.Tests),
-		"Description":   string(nft.Description),
-		"NSolutions":    std.Itoa10(nft.NSolutions),
-		"AverAssesment": std.Itoa10(nft.AverAssesment),
+		"tests":         nft.Tests,
+		"description":   nft.Description,
+		"nsolutions":    std.Itoa10(nft.NSolutions),
+		"averassesment": std.Itoa10(nft.AverAssesment),
 	}
 	return result
 }
@@ -205,8 +205,6 @@ func postTransfer(from interop.Hash160, to interop.Hash160, token []byte, data a
 // this method directly, instead it's called by GAS contract when you transfer
 // GAS from your address to the address of this NFT contract.
 func OnNEP17Payment(from interop.Hash160, amount int, data any) {
-	panic("\nOnNEP17Payment CALLED\n")
-
 	defer func() {
 		if r := recover(); r != nil {
 			runtime.Log(r.(string))
@@ -218,13 +216,19 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	if !callingHash.Equals(gas.Hash) {
 		panic("only GAS is accepted")
 	}
+	dict := std.JSONDeserialize(data.([]byte)).(map[string]any)
 
-	input_data := std.JSONDeserialize(data.([]byte)).(struct {
+	taskData := &struct {
 		Name        string
-		Tests       []byte
+		Tests       string
 		Description string
-	})
-	if len(input_data.Name) < 3 {
+	}{
+		Name:        dict["name"].(string),
+		Tests:       dict["tests"].(string),
+		Description: dict["description"].(string),
+	}
+
+	if len(taskData.Name) < 3 {
 		panic("name length at least 3 character")
 	}
 
@@ -238,7 +242,7 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	}
 
 	ctx := storage.GetContext()
-	tokenID := crypto.Sha256([]byte(input_data.Name))
+	tokenID := crypto.Sha256([]byte(taskData.Name))
 	if nftExists(ctx, tokenID) {
 		panic("token already exists")
 	}
@@ -246,9 +250,9 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	nft := NFTTask{
 		ID:            tokenID,
 		Owner:         from,
-		Name:          input_data.Name,
-		Tests:         input_data.Tests,
-		Description:   input_data.Description,
+		Name:          taskData.Name,
+		Tests:         taskData.Tests,
+		Description:   taskData.Description,
 		NSolutions:    0,
 		AverAssesment: 0,
 	}
@@ -279,7 +283,9 @@ func ChangeTaskAssesment(tokenid []byte, newAssesmentNum int) {
 	if prevAver < nft.AverAssesment {
 		reward += forSolutionGas
 	}
-	gas.Transfer(runtime.GetExecutingScriptHash(), nft.Owner, forSolutionGas, nil)
+	if !gas.Transfer(runtime.GetExecutingScriptHash(), nft.Owner, forSolutionGas, nil)	{
+		panic("Could not reward for task assesment")
+	}
 }
 
 // mkAccountPrefix creates DB key-prefix for the account tokens specified

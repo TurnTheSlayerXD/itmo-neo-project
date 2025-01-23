@@ -1,0 +1,33 @@
+{
+    "wallet": {
+        "version": "1.0",
+        "accounts": [
+            {
+                "address": "NNJgXviAbVupVsHejjUcoFLF1PBMCbXUsS",
+                "key": "6PYUM4dufEPvmVaaPkcNyCHrNADkLEtvdiCqNEY2BFRnLMvBfp1uGfyMQU",
+                "label": "andrew",
+                "contract": {
+                    "script": "DCED+O9OtyfpMg7kStJRoQNghbTYTcj2we5LOTKKJMr+YgtBVuezJw==",
+                    "parameters": [
+                        {
+                            "name": "parameter0",
+                            "type": "Signature"
+                        }
+                    ],
+                    "deployed": false
+                },
+                "lock": false,
+                "isDefault": false
+            }
+        ],
+        "scrypt": {
+            "n": 16384,
+            "r": 8,
+            "p": 8
+        },
+        "extra": {
+            "Tokens": null
+        }
+    },
+    "password": "and"
+}

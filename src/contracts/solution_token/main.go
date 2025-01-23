@@ -37,7 +37,7 @@ type NFTSolution struct {
 	TaskId        []byte
 	TaskAssesment int
 	Owner         interop.Hash160
-	SrcCode       []byte
+	SrcCode       string
 	NAssesments   int
 	AverAssesment int
 	Description   string
@@ -94,12 +94,13 @@ func Properties(token []byte) map[string]string {
 
 	result := map[string]string{
 		"id":            string(nft.ID),
-		"owner":         ownerAddress(nft.Owner),
-		"taskAssesment": std.Itoa10(nft.TaskAssesment),
-		"SrcCode":       string(nft.SrcCode),
-		"Description":   string(nft.Description),
-		"NAssesments":   std.Itoa10(nft.NAssesments),
-		"AverAssesment": std.Itoa10(nft.AverAssesment),
+		"ownerid":         ownerAddress(nft.Owner),
+		"taskid":        string(nft.TaskId),
+		"taskassesment": std.Itoa10(nft.TaskAssesment),
+		"srccode":       nft.SrcCode,
+		"description":   nft.Description,
+		"nassesments":   std.Itoa10(nft.NAssesments),
+		"averassesment": std.Itoa10(nft.AverAssesment),
 	}
 	return result
 }
@@ -149,8 +150,6 @@ func TokensOfList(holder interop.Hash160) [][]byte {
 	return res
 }
 
-// Transfer token from its owner to another user, notice that it only has three
-// parameters because token owner can be deduced from token ID itself.
 func Transfer(to interop.Hash160, token []byte, data any) bool {
 	if len(to) != 20 {
 		panic("invalid 'to' address")
@@ -202,7 +201,6 @@ func setNFT(ctx storage.Context, token []byte, item NFTSolution) {
 	storage.Put(ctx, key, val)
 }
 
-// postTransfer emits Transfer event and calls onNEP11Payment if needed.
 func postTransfer(from interop.Hash160, to interop.Hash160, token []byte, data any) {
 	runtime.Notify("Transfer", from, to, 1, token)
 	if management.GetContract(to) != nil {
@@ -210,9 +208,6 @@ func postTransfer(from interop.Hash160, to interop.Hash160, token []byte, data a
 	}
 }
 
-// OnNEP17Payment mints tokens if at least 10 GAS is provided. You don't call
-// this method directly, instead it's called by GAS contract when you transfer
-// GAS from your address to the address of this NFT contract.
 func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -225,13 +220,18 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	if !callingHash.Equals(gas.Hash) {
 		panic("only GAS is accepted")
 	}
-
-	input_data := data.(struct {
-		Taskid        []byte
-		SrcCode       []byte
+	dict := std.JSONDeserialize(data.([]byte)).(map[string]any)
+	solutionData := &struct {
+		TaskId        []byte
+		SrcCode       string
 		TaskAssesment int
 		Description   string
-	})
+	}{
+		TaskId:        dict["taskid"].([]byte),
+		SrcCode:       dict["srccode"].(string),
+		Description:   dict["description"].(string),
+		TaskAssesment: dict["taskassesment"].(int),
+	}
 
 	price := 1_0000_0000
 
@@ -243,18 +243,18 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	}
 
 	ctx := storage.GetContext()
-	tokenID := crypto.Sha256([]byte(input_data.SrcCode))
+	tokenID := crypto.Sha256([]byte(solutionData.SrcCode))
 	if nftExists(ctx, tokenID) {
 		panic("Such solution already exists")
 	}
 
 	nft := NFTSolution{
-		TaskId:        input_data.Taskid,
-		TaskAssesment: input_data.TaskAssesment,
+		TaskId:        solutionData.TaskId,
+		TaskAssesment: solutionData.TaskAssesment,
 		ID:            tokenID,
 		Owner:         from,
-		SrcCode:       input_data.SrcCode,
-		Description:   input_data.Description,
+		SrcCode:       solutionData.SrcCode,
+		Description:   solutionData.Description,
 		NAssesments:   0,
 		AverAssesment: 0,
 	}
@@ -293,28 +293,20 @@ func ChangeSolutionAssesment(tokenid []byte, newAssesmentNum int) {
 		forSolutionGas, nil)
 }
 
-// mkAccountPrefix creates DB key-prefix for the account tokens specified
-// by concatenating accountPrefix and account address.
 func mkAccountPrefix(holder interop.Hash160) []byte {
 	res := []byte(accountPrefix)
 	return append(res, holder...)
 }
 
-// mkBalanceKey creates DB key for the account specified by concatenating balancePrefix
-// and account address.
 func mkBalanceKey(holder interop.Hash160) []byte {
 	res := []byte(balancePrefix)
 	return append(res, holder...)
 }
 
-// mkTokenKey creates DB key for the token specified by concatenating tokenPrefix
-// and token ID.
 func mkTokenKey(tokenID []byte) []byte {
 	res := []byte(tokenPrefix)
 	return append(res, tokenID...)
 }
-
-// getBalanceOf returns the balance of an account using database key.
 func getBalanceOf(ctx storage.Context, balanceKey []byte) int {
 	val := storage.Get(ctx, balanceKey)
 	if val != nil {
@@ -323,7 +315,6 @@ func getBalanceOf(ctx storage.Context, balanceKey []byte) int {
 	return 0
 }
 
-// addToBalance adds an amount to the account balance. Amount can be negative.
 func addToBalance(ctx storage.Context, holder interop.Hash160, amount int) {
 	key := mkBalanceKey(holder)
 	old := getBalanceOf(ctx, key)
@@ -335,13 +326,11 @@ func addToBalance(ctx storage.Context, holder interop.Hash160, amount int) {
 	}
 }
 
-// addToken adds a token to the account.
 func addToken(ctx storage.Context, holder interop.Hash160, token []byte) {
 	key := mkAccountPrefix(holder)
 	storage.Put(ctx, append(key, token...), token)
 }
 
-// removeToken removes the token from the account.
 func removeToken(ctx storage.Context, holder interop.Hash160, token []byte) {
 	key := mkAccountPrefix(holder)
 	storage.Delete(ctx, append(key, token...))

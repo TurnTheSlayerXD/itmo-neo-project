@@ -30,9 +30,24 @@
         }
     },
     "password": "and",
-    "name": "test_task",
-    "tests": "some tests",
+    "name": "two_test_task",
+    "tests": [
+        {
+            "input": 0,
+            "output": "Hello 0"
+        },
+        {
+            "input": 1,
+            "output": "Hello 1"
+        },
+        {
+            "input": 2,
+            "output": "Hello 2"
+        },
+        {
+            "input": 3,
+            "output": "Hello 3"
+        }
+    ],
     "description": "some description"
 }
-
-

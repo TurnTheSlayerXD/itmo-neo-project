@@ -1,0 +1,37 @@
+{
+    "wallet": {
+        "version": "1.0",
+        "accounts": [
+            {
+                "address": "NNJgXviAbVupVsHejjUcoFLF1PBMCbXUsS",
+                "key": "6PYUM4dufEPvmVaaPkcNyCHrNADkLEtvdiCqNEY2BFRnLMvBfp1uGfyMQU",
+                "label": "andrew",
+                "contract": {
+                    "script": "DCED+O9OtyfpMg7kStJRoQNghbTYTcj2we5LOTKKJMr+YgtBVuezJw==",
+                    "parameters": [
+                        {
+                            "name": "parameter0",
+                            "type": "Signature"
+                        }
+                    ],
+                    "deployed": false
+                },
+                "lock": false,
+                "isDefault": false
+            }
+        ],
+        "scrypt": {
+            "n": 16384,
+            "r": 8,
+            "p": 8
+        },
+        "extra": {
+            "Tokens": null
+        }
+    },
+    "password": "and",
+    "taskid": "b62f1351323ddbd5ccec4dc177b23e5ebb21f2c33cc84e943e6cded765b67526",
+    "srccode": "#include <iostream>\nint main(){int a; std::cin >> a;std::cout << \"Hello \" << a;}",
+    "taskassesment": 5,
+    "description": "some description"
+}

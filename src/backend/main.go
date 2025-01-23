@@ -1,16 +1,23 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"os"
+	"os/exec"
 	"os/signal"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"syscall"
 
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 
 	"context"
@@ -39,6 +46,26 @@ func main() {
 
 	Listen(rpcCli)
 
+}
+
+type NFTTask struct {
+	ID            string
+	Owner         util.Uint160
+	Name          string
+	Tests         string
+	Description   string
+	NSolutions    int
+	AverAssesment int
+}
+type NFTSolution struct {
+	ID            string
+	TaskId        string
+	TaskAssesment int
+	Owner         util.Uint160
+	SrcCode       string
+	NAssesments   int
+	AverAssesment int
+	Description   string
 }
 
 func Listen(rpc *rpcclient.Client) error {
@@ -124,14 +151,71 @@ func Listen(rpc *rpcclient.Client) error {
 			return
 		}
 
-		data := &struct {
-			Name        string
-			Tests       []byte
-			Description string
-		}{
-			Name:        dict["name"].(string),
-			Tests:       []byte(dict["tests"].(string)),
-			Description: dict["description"].(string),
+		f, err := json.Marshal(dict["tests"])
+		tests := string(f)
+
+		die(err)
+		data := map[string]any{
+			"name":        dict["name"],
+			"tests":       tests,
+			"description": dict["description"]}
+
+		json_dt, err := json.Marshal(data)
+		die(err)
+		if err != nil {
+			die(err)
+			return
+		}
+
+		contractGas := gas.New(act)
+		_, err = act.WaitSuccess(contractGas.Transfer(act.Sender(),
+			tasktoken.Hash, big.NewInt(10_0000_0000), json_dt))
+		die(err)
+
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, "Successful")
+
+	})
+
+	http.HandleFunc("/add_solution", func(w http.ResponseWriter, r *http.Request) {
+		smt, err := requestToDict(r)
+		if err != nil {
+			http_die(w, "requestToDict", err)
+			return
+		}
+		dict := *smt
+
+		_, acc, err := checkAuthentication(&dict)
+
+		if err != nil {
+			http_die(w, "checkAuthentication", err)
+			return
+
+		}
+		act, err := actor.NewSimple(rpc, &acc)
+		if err != nil {
+			http_die(w, "newSimpleActor", err)
+			return
+		}
+
+		contrTask := tasktoken.New(act)
+		die(err)
+
+		taskNFT, err := getTaskById(contrTask, dict["taskid"].(string))
+		die(err)
+
+		ok := checkIfPassesTests(string(taskNFT.Tests), dict["srccode"].(string))
+		if !ok {
+			die(errors.New("didn't pass tests"))
+		}
+
+		taskid, err := hex.DecodeString(dict["taskid"].(string))
+		die(err)
+		data := map[string]any{
+			"taskid":        taskid,
+			"srccode":       dict["srccode"],
+			"taskassesment": dict["taskassesment"],
+			"description":   dict["description"],
 		}
 
 		json_dt, err := json.Marshal(data)
@@ -140,14 +224,12 @@ func Listen(rpc *rpcclient.Client) error {
 			die(err)
 			return
 		}
-
 		contractGas := gas.New(act)
-		_, _, err = contractGas.Transfer(act.Sender(),
-			tasktoken.Hash, big.NewInt(10_0000_0000), json_dt)
-
+		_, err = act.WaitSuccess(contractGas.Transfer(act.Sender(),
+			solutiontoken.Hash, big.NewInt(10_0000_0000), json_dt))
+		die(err)
 		if err != nil {
 			http_die(w, "Transfer", err)
-			die(err)
 			return
 		}
 		w.WriteHeader(http.StatusAccepted)
@@ -155,8 +237,139 @@ func Listen(rpc *rpcclient.Client) error {
 
 	})
 
+	http.HandleFunc("/get_all_tasks", func(w http.ResponseWriter, r *http.Request) {
+
+		smt, err := requestToDict(r)
+		if err != nil {
+			http_die(w, "requestToDict", err)
+			return
+		}
+		dict := *smt
+
+		_, acc, err := checkAuthentication(&dict)
+
+		if err != nil {
+			http_die(w, "checkAuthentication", err)
+			return
+		}
+
+		act, err := actor.NewSimple(rpc, &acc)
+		if err != nil {
+			http_die(w, "newSimpleActor", err)
+			return
+		}
+
+		c := tasktoken.New(act)
+		die(err)
+
+		res := listTasks(c)
+
+		bytes, err := json.Marshal(res)
+		die(err)
+
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, "%s", string(bytes))
+
+	})
+	http.HandleFunc("/get_all_solutions", func(w http.ResponseWriter, r *http.Request) {
+
+		smt, err := requestToDict(r)
+		if err != nil {
+			http_die(w, "requestToDict", err)
+			return
+		}
+		dict := *smt
+
+		_, acc, err := checkAuthentication(&dict)
+
+		if err != nil {
+			http_die(w, "checkAuthentication", err)
+			return
+		}
+
+		act, err := actor.NewSimple(rpc, &acc)
+		if err != nil {
+			http_die(w, "newSimpleActor", err)
+			return
+		}
+
+		c := solutiontoken.New(act)
+		die(err)
+		res := listSolutions(c)
+		for t := range res {
+			println(t)
+		}
+
+		bytes, err := json.Marshal(res)
+		die(err)
+
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, "%s", string(bytes))
+
+	})
+
 	http.ListenAndServe("localhost:8040", nil)
 	return nil
+}
+
+func checkIfPassesTests(tests string, srcCode string) bool {
+
+	err := os.WriteFile("./solutionCheck/main.cpp", []byte(srcCode), 0755)
+	die(err)
+	if err != nil {
+		return false
+	}
+	err = os.WriteFile("./solutionCheck/tests.json", []byte(tests), 0755)
+	die(err)
+	if err != nil {
+		return false
+	}
+	cmd := exec.Command("python3", "./solutionCheck/solution_check.py")
+	stdout, err := cmd.CombinedOutput()
+	println(string(stdout))
+	die(err)
+	if !strings.HasSuffix(string(stdout), "success\n") || err != nil {
+		return false
+	}
+
+	return true
+}
+
+func listTasks(c *tasktoken.Contract) []NFTTask {
+	res, err := c.TokensExpanded(10)
+	die(err)
+
+	var list []NFTTask
+	for _, re := range res {
+		prop, err := c.Properties(re)
+		die(err)
+
+		list = append(list, parseTask(prop.Value().([]stackitem.MapElement)))
+	}
+
+	return list
+}
+func listSolutions(c *solutiontoken.Contract) []NFTSolution {
+	res, err := c.TokensExpanded(10)
+	die(err)
+
+	var list []NFTSolution
+	for _, re := range res {
+		prop, err := c.Properties(re)
+		die(err)
+		list = append(list, parseSolution(prop.Value().([]stackitem.MapElement)))
+	}
+	return list
+}
+
+func getTaskById(c *tasktoken.Contract, taskId string) (NFTTask, error) {
+	list := listTasks(c)
+	for _, task := range list {
+		if task.ID == taskId {
+			return task, nil
+		}
+	}
+	return NFTTask{}, errors.New("no such task")
 }
 
 func requestToDict(r *http.Request) (*map[string]any, error) {
@@ -236,4 +449,76 @@ func die(err error) {
 	debug.PrintStack()
 	_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 	os.Exit(1)
+}
+
+func parseTask(items []stackitem.MapElement) NFTTask {
+	var res NFTTask
+
+	for _, item := range items {
+		k, err := item.Key.TryBytes()
+		die(err)
+		v, err := item.Value.TryBytes()
+		die(err)
+
+		kStr := string(k)
+		switch kStr {
+		case "id":
+			res.ID = hex.EncodeToString(v)
+		case "owner":
+			res.Owner, err = address.StringToUint160(string(v))
+			die(err)
+		case "name":
+			res.Name = string(v)
+		case "nsolutions":
+			res.NSolutions, err = strconv.Atoi(string(v))
+			die(err)
+		case "tests":
+			res.Tests = string(v)
+		case "averassesment":
+			res.AverAssesment, err = strconv.Atoi(string(v))
+			die(err)
+		case "description":
+			res.Description = string(v)
+		}
+	}
+
+	return res
+}
+
+func parseSolution(items []stackitem.MapElement) NFTSolution {
+	var res NFTSolution
+
+	for _, item := range items {
+		k, err := item.Key.TryBytes()
+		die(err)
+		v, err := item.Value.TryBytes()
+		die(err)
+		kStr := string(k)
+		switch kStr {
+		case "id":
+			id := hex.EncodeToString(v)
+			die(err)
+			res.ID = id
+		case "ownerid":
+			res.Owner, err = address.StringToUint160(string(v))
+			die(err)
+		case "taskid":
+			res.TaskId = hex.EncodeToString(v)
+		case "taskassesment":
+			res.TaskAssesment, err = strconv.Atoi(string(v))
+			die(err)
+		case "srccode":
+			res.SrcCode = string(v)
+		case "description":
+			res.Description = string(v)
+		case "nassesments":
+			res.TaskAssesment, err = strconv.Atoi(string(v))
+			die(err)
+		case "averassesment":
+			res.AverAssesment, err = strconv.Atoi(string(v))
+			die(err)
+		}
+	}
+
+	return res
 }
