@@ -173,9 +173,8 @@ func Transfer(to interop.Hash160, token []byte, data any) bool {
 func getNFT(ctx storage.Context, token []byte) NFTTask {
 	key := mkTokenKey(token)
 	val := storage.Get(ctx, key)
-	if val == nil {
-		panic("no token found")
-	}
+
+	util.AssertMsg(val != nil, "no token found")
 
 	serializedNFT := val.([]byte)
 	deserializedNFT := std.Deserialize(serializedNFT)
@@ -267,11 +266,11 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 }
 
 func ChangeTaskAssesment(tokenid []byte, newAssesmentNum int) {
-	if newAssesmentNum < 0 || newAssesmentNum > 10 {
-		panic("Wrong assesment num")
-	}
+
+	util.AssertMsg(0 < newAssesmentNum && newAssesmentNum <= 10, "Wrong assesment num")
 
 	context := storage.GetContext()
+
 	nft := getNFT(context, tokenid)
 	prevAver := nft.AverAssesment
 	nft.AverAssesment = (nft.AverAssesment*nft.NSolutions + newAssesmentNum) / (nft.NSolutions + 1)
@@ -283,9 +282,8 @@ func ChangeTaskAssesment(tokenid []byte, newAssesmentNum int) {
 	if prevAver < nft.AverAssesment {
 		reward += forSolutionGas
 	}
-	if !gas.Transfer(runtime.GetExecutingScriptHash(), nft.Owner, forSolutionGas, nil)	{
-		panic("Could not reward for task assesment")
-	}
+	util.AssertMsg(gas.Transfer(runtime.GetExecutingScriptHash(), nft.Owner, forSolutionGas, nil),
+		"Could not reward for task assesment")
 }
 
 // mkAccountPrefix creates DB key-prefix for the account tokens specified

@@ -30,10 +30,6 @@ import (
 	"backend/wrappers/tasktoken"
 )
 
-var (
-	solutionContract solutiontoken.Invoker
-)
-
 func main() {
 
 	ctx, _ := signal.NotifyContext(context.Background(),
@@ -63,8 +59,6 @@ type NFTSolution struct {
 	TaskAssesment int
 	Owner         util.Uint160
 	SrcCode       string
-	NAssesments   int
-	AverAssesment int
 	Description   string
 }
 
@@ -72,46 +66,31 @@ func Listen(rpc *rpcclient.Client) error {
 
 	http.HandleFunc("/createaccount", func(w http.ResponseWriter, r *http.Request) {
 		f, err := requestToDict(r)
+		die(err)
 		smt := *f
-		if err != nil {
-			http_die(w, "json parsing err", err)
-			return
-		}
 
 		name, ok := smt["name"].(string)
 		if !ok {
-			http_die(w, "name parsing err", err)
-			return
+			die(errors.New("name parsing err"))
 		}
 		passphrase, ok := smt["password"].(string)
 		if !ok {
-			http_die(w, "password parsing err", err)
-			return
+			die(errors.New("password parsing err"))
 		}
 
 		wal := wallet.NewInMemoryWallet()
 
 		acc, err := wallet.NewAccount()
-		if err != nil {
-			http_die(w, "New account", err)
-			return
-		}
+		die(err)
 		acc.Label = name
-		if err := acc.Encrypt(passphrase, wal.Scrypt); err != nil {
-			http_die(w, "encrypt", err)
-			return
-		}
+		err = acc.Encrypt(passphrase, wal.Scrypt)
+		die(err)
 		wal.AddAccount(acc)
 		fmt.Printf("account=%s\npassword=%s\n", name, passphrase)
-		if err != nil {
-			http_die(w, "CreateAccount", err)
-			return
-		}
+
 		json, err := wal.JSON()
-		if err != nil {
-			http_die(w, "wallet json", err)
-			return
-		}
+		die(err)
+
 		w.WriteHeader(http.StatusAccepted)
 		fmt.Fprintf(w, "%s\n\n", json)
 	})
@@ -119,37 +98,23 @@ func Listen(rpc *rpcclient.Client) error {
 	http.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
 
 		dict, err := requestToDict(r)
-		if err != nil {
-			http_die(w, "requestToDict", err)
-			return
-		}
+		die(err)
 		_, _, err = checkAuthentication(dict)
-		if err != nil {
-			http_die(w, "checkAuthentication", err)
-		}
+		die(err)
 		w.WriteHeader(http.StatusAccepted)
 	})
 
 	http.HandleFunc("/add_task", func(w http.ResponseWriter, r *http.Request) {
 
 		smt, err := requestToDict(r)
+		die(err)
 		dict := *smt
-		if err != nil {
-			http_die(w, "requestToDict", err)
-			return
-		}
-		_, acc, err := checkAuthentication(&dict)
 
-		if err != nil {
-			http_die(w, "checkAuthentication", err)
-			return
-		}
+		_, acc, err := checkAuthentication(&dict)
+		die(err)
 
 		act, err := actor.NewSimple(rpc, &acc)
-		if err != nil {
-			http_die(w, "newSimpleActor", err)
-			return
-		}
+		die(err)
 
 		f, err := json.Marshal(dict["tests"])
 		tests := string(f)
@@ -162,10 +127,6 @@ func Listen(rpc *rpcclient.Client) error {
 
 		json_dt, err := json.Marshal(data)
 		die(err)
-		if err != nil {
-			die(err)
-			return
-		}
 
 		contractGas := gas.New(act)
 		_, err = act.WaitSuccess(contractGas.Transfer(act.Sender(),
@@ -179,24 +140,15 @@ func Listen(rpc *rpcclient.Client) error {
 
 	http.HandleFunc("/add_solution", func(w http.ResponseWriter, r *http.Request) {
 		smt, err := requestToDict(r)
-		if err != nil {
-			http_die(w, "requestToDict", err)
-			return
-		}
+		die(err)
+
 		dict := *smt
 
 		_, acc, err := checkAuthentication(&dict)
+		die(err)
 
-		if err != nil {
-			http_die(w, "checkAuthentication", err)
-			return
-
-		}
 		act, err := actor.NewSimple(rpc, &acc)
-		if err != nil {
-			http_die(w, "newSimpleActor", err)
-			return
-		}
+		die(err)
 
 		contrTask := tasktoken.New(act)
 		die(err)
@@ -211,27 +163,24 @@ func Listen(rpc *rpcclient.Client) error {
 
 		taskid, err := hex.DecodeString(dict["taskid"].(string))
 		die(err)
+
 		data := map[string]any{
 			"taskid":        taskid,
-			"srccode":       dict["srccode"],
-			"taskassesment": dict["taskassesment"],
-			"description":   dict["description"],
+			"srccode":       dict["srccode"].(string),
+			"description":   dict["description"].(string),
+			"taskassesment": int(dict["taskassesment"].(float64)),
 		}
+
+		println(string(taskid))
 
 		json_dt, err := json.Marshal(data)
+		die(err)
 
-		if err != nil {
-			die(err)
-			return
-		}
 		contractGas := gas.New(act)
 		_, err = act.WaitSuccess(contractGas.Transfer(act.Sender(),
-			solutiontoken.Hash, big.NewInt(10_0000_0000), json_dt))
+			solutiontoken.Hash, big.NewInt(1_0000_0000), json_dt))
 		die(err)
-		if err != nil {
-			http_die(w, "Transfer", err)
-			return
-		}
+
 		w.WriteHeader(http.StatusAccepted)
 		fmt.Fprintf(w, "Successful")
 
@@ -240,24 +189,15 @@ func Listen(rpc *rpcclient.Client) error {
 	http.HandleFunc("/get_all_tasks", func(w http.ResponseWriter, r *http.Request) {
 
 		smt, err := requestToDict(r)
-		if err != nil {
-			http_die(w, "requestToDict", err)
-			return
-		}
+		die(err)
+
 		dict := *smt
 
 		_, acc, err := checkAuthentication(&dict)
-
-		if err != nil {
-			http_die(w, "checkAuthentication", err)
-			return
-		}
+		die(err)
 
 		act, err := actor.NewSimple(rpc, &acc)
-		if err != nil {
-			http_die(w, "newSimpleActor", err)
-			return
-		}
+		die(err)
 
 		c := tasktoken.New(act)
 		die(err)
@@ -271,30 +211,23 @@ func Listen(rpc *rpcclient.Client) error {
 		fmt.Fprintf(w, "%s", string(bytes))
 
 	})
+
 	http.HandleFunc("/get_all_solutions", func(w http.ResponseWriter, r *http.Request) {
 
 		smt, err := requestToDict(r)
-		if err != nil {
-			http_die(w, "requestToDict", err)
-			return
-		}
+		die(err)
+
 		dict := *smt
 
 		_, acc, err := checkAuthentication(&dict)
-
-		if err != nil {
-			http_die(w, "checkAuthentication", err)
-			return
-		}
+		die(err)
 
 		act, err := actor.NewSimple(rpc, &acc)
-		if err != nil {
-			http_die(w, "newSimpleActor", err)
-			return
-		}
+		die(err)
 
 		c := solutiontoken.New(act)
 		die(err)
+
 		res := listSolutions(c)
 		for t := range res {
 			println(t)
@@ -308,6 +241,38 @@ func Listen(rpc *rpcclient.Client) error {
 
 	})
 
+	http.HandleFunc("/get_balance", func(w http.ResponseWriter, r *http.Request) {
+
+		smt, err := requestToDict(r)
+		die(err)
+
+		dict := *smt
+
+		_, acc, err := checkAuthentication(&dict)
+		die(err)
+
+		act, err := actor.NewSimple(rpc, &acc)
+		die(err)
+
+		contractGas := gas.New(act)
+
+		balance, err := contractGas.BalanceOf(acc.ScriptHash())
+		die(err)
+
+		value, _ := balance.Float64()
+		value /= 10_0000_0000
+		resp := map[string]any{
+			"wallet":  dict["wallet"],
+			"balance": value,
+		}
+
+		bytes, err := json.Marshal(resp)
+		die(err)
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, "%s", string(bytes))
+
+	})
+
 	http.ListenAndServe("localhost:8040", nil)
 	return nil
 }
@@ -316,18 +281,15 @@ func checkIfPassesTests(tests string, srcCode string) bool {
 
 	err := os.WriteFile("./solutionCheck/main.cpp", []byte(srcCode), 0755)
 	die(err)
-	if err != nil {
-		return false
-	}
+
 	err = os.WriteFile("./solutionCheck/tests.json", []byte(tests), 0755)
 	die(err)
-	if err != nil {
-		return false
-	}
+
 	cmd := exec.Command("python3", "./solutionCheck/solution_check.py")
 	stdout, err := cmd.CombinedOutput()
 	println(string(stdout))
 	die(err)
+
 	if !strings.HasSuffix(string(stdout), "success\n") || err != nil {
 		return false
 	}
@@ -513,9 +475,6 @@ func parseSolution(items []stackitem.MapElement) NFTSolution {
 			res.Description = string(v)
 		case "nassesments":
 			res.TaskAssesment, err = strconv.Atoi(string(v))
-			die(err)
-		case "averassesment":
-			res.AverAssesment, err = strconv.Atoi(string(v))
 			die(err)
 		}
 	}

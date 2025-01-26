@@ -1,0 +1,59 @@
+[
+    {
+        "ID": "b62f1351323ddbd5ccec4dc177b23e5ebb21f2c33cc84e943e6cded765b67526",
+        "Owner": "0xc95e3a65fabd98232cf652b07ee7ca4a09eb3b1a",
+        "Name": "two_test_task",
+        "Tests": "[{\"input\":0,\"output\":\"Hello 0\"},{\"input\":1,\"output\":\"Hello 1\"},{\"input\":2,\"output\":\"Hello 2\"},{\"input\":3,\"output\":\"Hello 3\"}]",
+        "Description": "some description",
+        "NSolutions": 0,
+        "AverAssesment": 0
+    }
+]
+
+[
+    {
+        "ID": "69150e51e64992aa6ee81957964e245d2172c315e922e6d87fbbae69d19d534d",
+        "TaskId": "b62f1351323ddbd5ccec4dc177b23e5ebb21f2c33cc84e943e6cded765b67526",
+        "TaskAssesment": 5,
+        "Owner": "0xc95e3a65fabd98232cf652b07ee7ca4a09eb3b1a",
+        "SrcCode": "#include \u003ciostream\u003e\nint main(){int a; std::cin \u003e\u003e a;std::cout \u003c\u003c \"Hello \" \u003c\u003c a;}",
+        "NAssesments": 0,
+        "AverAssesment": 0,
+        "Description": "some description"
+    }
+]
+
+
+{
+    "balance": 999998.648605301,
+    "wallet": {
+        "accounts": [
+            {
+                "address": "NNJgXviAbVupVsHejjUcoFLF1PBMCbXUsS",
+                "contract": {
+                    "deployed": false,
+                    "parameters": [
+                        {
+                            "name": "parameter0",
+                            "type": "Signature"
+                        }
+                    ],
+                    "script": "DCED+O9OtyfpMg7kStJRoQNghbTYTcj2we5LOTKKJMr+YgtBVuezJw=="
+                },
+                "isDefault": false,
+                "key": "6PYUM4dufEPvmVaaPkcNyCHrNADkLEtvdiCqNEY2BFRnLMvBfp1uGfyMQU",
+                "label": "andrew",
+                "lock": false
+            }
+        ],
+        "extra": {
+            "Tokens": null
+        },
+        "scrypt": {
+            "n": 16384,
+            "p": 8,
+            "r": 8
+        },
+        "version": "1.0"
+    }
+}

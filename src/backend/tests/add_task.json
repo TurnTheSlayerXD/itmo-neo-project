@@ -30,7 +30,7 @@
         }
     },
     "password": "and",
-    "name": "two_test_task",
+    "name": "third_test_task",
     "tests": [
         {
             "input": 0,

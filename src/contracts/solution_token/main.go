@@ -23,14 +23,9 @@ const (
 	totalSupplyKey = 's'
 )
 
-const (
-	forSolutionGas = 1
-	minNameLen     = 3
-)
+var contractTask_hash = interop.Hash160{0xcc, 0x6e, 0xe4, 0x23, 0x67, 0xd9, 0x3f, 0xde, 0x8d, 0x21, 0xf2, 0x30, 0x38, 0x4f, 0xca, 0x54, 0x54, 0x3f, 0x8f, 0x6a}
 
-var (
-	NFTtask_hash interop.Hash160
-)
+
 
 type NFTSolution struct {
 	ID            []byte
@@ -38,8 +33,6 @@ type NFTSolution struct {
 	TaskAssesment int
 	Owner         interop.Hash160
 	SrcCode       string
-	NAssesments   int
-	AverAssesment int
 	Description   string
 }
 
@@ -47,10 +40,7 @@ func _deploy(data any, isUpdate bool) {
 	if isUpdate {
 		return
 	}
-	NFTtask_hash = data.([]byte)
-	if len(NFTtask_hash) != 20 {
-		panic("NFTtask_hash len not equal 20")
-	}
+	util.AssertMsg(contractTask_hash != nil, "_deploy contractTask_hash == nil")
 
 	ctx := storage.GetContext()
 	storage.Put(ctx, ownerKey, runtime.GetCallingScriptHash())
@@ -94,13 +84,11 @@ func Properties(token []byte) map[string]string {
 
 	result := map[string]string{
 		"id":            string(nft.ID),
-		"ownerid":         ownerAddress(nft.Owner),
+		"ownerid":       ownerAddress(nft.Owner),
 		"taskid":        string(nft.TaskId),
 		"taskassesment": std.Itoa10(nft.TaskAssesment),
 		"srccode":       nft.SrcCode,
 		"description":   nft.Description,
-		"nassesments":   std.Itoa10(nft.NAssesments),
-		"averassesment": std.Itoa10(nft.AverAssesment),
 	}
 	return result
 }
@@ -220,6 +208,7 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	if !callingHash.Equals(gas.Hash) {
 		panic("only GAS is accepted")
 	}
+	
 	dict := std.JSONDeserialize(data.([]byte)).(map[string]any)
 	solutionData := &struct {
 		TaskId        []byte
@@ -227,7 +216,7 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 		TaskAssesment int
 		Description   string
 	}{
-		TaskId:        dict["taskid"].([]byte),
+		TaskId:        std.Base64Decode(dict["taskid"].([]byte)),
 		SrcCode:       dict["srccode"].(string),
 		Description:   dict["description"].(string),
 		TaskAssesment: dict["taskassesment"].(int),
@@ -239,7 +228,7 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 		panic("insufficient GAS for minting NFT")
 	} else if amount > price {
 		gas.Transfer(runtime.GetExecutingScriptHash(),
-			runtime.GetCallingScriptHash(), amount-price, nil)
+			from, amount-price, nil)
 	}
 
 	ctx := storage.GetContext()
@@ -255,8 +244,6 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 		Owner:         from,
 		SrcCode:       solutionData.SrcCode,
 		Description:   solutionData.Description,
-		NAssesments:   0,
-		AverAssesment: 0,
 	}
 	setNFT(ctx, tokenID, nft)
 	addToBalance(ctx, from, 1)
@@ -267,30 +254,11 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 
 	postTransfer(nil, from, tokenID, nil)
 
-	contract.Call(NFTtask_hash, "changeTaskAssesment", contract.All,
+	util.AssertMsg(contractTask_hash != nil, "CONTRACT TASK HASh EQUALS NIL WTF")
+
+	contract.Call(contractTask_hash, "changeTaskAssesment", contract.All,
 		nft.TaskId, nft.TaskAssesment)
 
-}
-
-func ChangeSolutionAssesment(tokenid []byte, newAssesmentNum int) {
-	if newAssesmentNum < 0 || newAssesmentNum > 10 {
-		panic("Wrong assesment num")
-	}
-
-	context := storage.GetContext()
-	nft := getNFT(context, tokenid)
-	prevAver := nft.AverAssesment
-	nft.AverAssesment = (nft.AverAssesment*nft.NAssesments + newAssesmentNum) / (nft.NAssesments + 1)
-	nft.NAssesments += 1
-
-	setNFT(context, tokenid, nft)
-
-	reward := forSolutionGas
-	if prevAver < nft.AverAssesment {
-		reward += forSolutionGas
-	}
-	gas.Transfer(runtime.GetExecutingScriptHash(), runtime.GetCallingScriptHash(),
-		forSolutionGas, nil)
 }
 
 func mkAccountPrefix(holder interop.Hash160) []byte {

@@ -1,0 +1,140 @@
+endpoint: http: //localhost:8040/createaccount
+input: {
+    "name": "my name",
+    "password": "my password"
+}
+
+output: {
+    "version": "1.0",
+    "accounts": [
+        {
+            "address": "NaijeSgXxMDj1PbKFK4SYtwT8v7QMz9FNa",
+            "key": "6PYQkeodgvRH5LWfwAhGqfbqZTVeRcgHqBKCAXSBeqptdCBAe7e2o8tY4X",
+            "label": "my name",
+            "contract": {
+                "script": "DCEDo+3PFXrUm8UMqYX/GmsBv3ShGQoywm30INcI0XZeHJRBVuezJw==",
+                "parameters": [
+                    {
+                        "name": "parameter0",
+                        "type": "Signature"
+                    }
+                ],
+                "deployed": false
+            },
+            "lock": false,
+            "isDefault": false
+        }
+    ],
+    "scrypt": {
+        "n": 16384,
+        "r": 8,
+        "p": 8
+    },
+    "extra": {
+        "Tokens": null
+    }
+}
+
+
+endpoint: http: //localhost:8040/get_balance
+
+input: {
+    "wallet": {
+        ...
+    },
+    "password": "and"
+}
+
+output : {
+    "wallet": {...
+    }
+    "balance": число
+}
+
+
+endpoint : http: //localhost:8040/get_all_solutions
+input: {
+    "wallet": {
+        ...
+    },
+    "password": "and"
+}
+
+output : [
+    {
+        "ID": "b62f1351323ddbd5ccec4dc177b23e5ebb21f2c33cc84e943e6cded765b67526",
+        "Owner": "0xc95e3a65fabd98232cf652b07ee7ca4a09eb3b1a",
+        "Name": "two_test_task",
+        "Tests": "[{\"input\":0,\"output\":\"Hello 0\"},{\"input\":1,\"output\":\"Hello 1\"},{\"input\":2,\"output\":\"Hello 2\"},{\"input\":3,\"output\":\"Hello 3\"}]",
+        "Description": "some description",
+        "NSolutions": 0,
+        "AverAssesment": 0
+    }
+]
+
+
+
+endpoint: http: //localhost:8040/get_all_tasks
+
+input : {
+    "wallet": {
+        ...
+    },
+    "password": "and"
+}
+output : [
+    {
+        "ID": "69150e51e64992aa6ee81957964e245d2172c315e922e6d87fbbae69d19d534d",
+        "TaskId": "b62f1351323ddbd5ccec4dc177b23e5ebb21f2c33cc84e943e6cded765b67526",
+        "TaskAssesment": 5,
+        "Owner": "0xc95e3a65fabd98232cf652b07ee7ca4a09eb3b1a",
+        "SrcCode": "#include \u003ciostream\u003e\nint main(){int a; std::cin \u003e\u003e a;std::cout \u003c\u003c \"Hello \" \u003c\u003c a;}",
+        "NAssesments": 0,
+        "AverAssesment": 0,
+        "Description": "some description"
+    }
+]
+
+
+endpoint: http: //localhost:8040/add_task
+
+input: {
+    "wallet": {
+        ...
+    },
+    "password": "and",
+    "name": "third_test_task",
+    "tests": [
+        {
+            "input": 0,
+            "output": "Hello 0"
+        },
+        {
+            "input": 1,
+            "output": "Hello 1"
+        },
+        {
+            "input": 2,
+            "output": "Hello 2"
+        },
+        {
+            "input": 3,
+            "output": "Hello 3"
+        }
+    ],
+    "description": "some description"
+}
+
+output: ошибка если что-то сломается, в ином случае просто successful
+
+endpoint: http: //localhost:8040/add_solution
+input: {
+    "wallet": {
+        ...
+    },
+    "password": "and",
+    "taskid": "b62f1351323ddbd5ccec4dc177b23e5ebb21f2c33cc84e943e6cded765b67526",
+    "srccode": "#include <iostream>\nint main(){int a; std::cin >> a;std::cout << \"Hello \" << a;}",
+    "taskassesment": 5,
+    "description": "some description"
+}
