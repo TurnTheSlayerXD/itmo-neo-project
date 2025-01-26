@@ -272,6 +272,64 @@ func Listen(rpc *rpcclient.Client) error {
 		fmt.Fprintf(w, "%s", string(bytes))
 
 	})
+	http.HandleFunc("/get_owned_tasks", func(w http.ResponseWriter, r *http.Request) {
+
+		smt, err := requestToDict(r)
+		die(err)
+
+		dict := *smt
+
+		_, acc, err := checkAuthentication(&dict)
+		die(err)
+
+		act, err := actor.NewSimple(rpc, &acc)
+		die(err)
+
+		contr := tasktoken.New(act)
+
+		res, err := contr.TokensOfExpanded(acc.ScriptHash(), 10)
+		die(err)
+		var list []NFTTask
+		for _, re := range res {
+			prop, err := contr.Properties(re)
+			die(err)
+			list = append(list, parseTask(prop.Value().([]stackitem.MapElement)))
+		}
+		bytes, err := json.Marshal(list)
+		die(err)
+
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, "%s", string(bytes))
+	})
+	http.HandleFunc("/get_owned_solutions", func(w http.ResponseWriter, r *http.Request) {
+
+		smt, err := requestToDict(r)
+		die(err)
+
+		dict := *smt
+
+		_, acc, err := checkAuthentication(&dict)
+		die(err)
+
+		act, err := actor.NewSimple(rpc, &acc)
+		die(err)
+
+		contr := solutiontoken.New(act)
+
+		res, err := contr.TokensOfExpanded(acc.ScriptHash(), 10)
+		die(err)
+		var list []NFTSolution
+		for _, re := range res {
+			prop, err := contr.Properties(re)
+			die(err)
+			list = append(list, parseSolution(prop.Value().([]stackitem.MapElement)))
+		}
+		bytes, err := json.Marshal(list)
+		die(err)
+
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, "%s", string(bytes))
+	})
 
 	http.ListenAndServe("localhost:8040", nil)
 	return nil

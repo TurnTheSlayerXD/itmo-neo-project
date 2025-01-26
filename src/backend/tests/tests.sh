@@ -11,6 +11,9 @@
 
  curl -d "$(cat ./test_list.json)" http://localhost:8040/get_balance
 
+ curl -d "$(cat ./test_list.json)" http://localhost:8040/get_owned_tasks
+ curl -d "$(cat ./test_list.json)" http://localhost:8040/get_owned_solutions
+
 
 
  curl -d "$(cat ./createaccount.json)" http://localhost:8040/createaccount

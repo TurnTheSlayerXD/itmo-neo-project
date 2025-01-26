@@ -30,7 +30,7 @@
         }
     },
     "password": "and",
-    "taskid": "b62f1351323ddbd5ccec4dc177b23e5ebb21f2c33cc84e943e6cded765b67526",
+    "taskid": "a54a1fe61d353384c0e84b36bd9b6c722a5d8c5784c7fac188a5b71fd96de8d0",
     "srccode": "#include <iostream>\nint main(){int a; std::cin >> a;std::cout << \"Hello \" << a;}",
     "taskassesment": 5,
     "description": "some description"
