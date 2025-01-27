@@ -17,7 +17,7 @@ neo-go contract compile -i ./solution_token/main.go -o ./solution_token/main.nef
 neo-go contract deploy -i ./solution_token/main.nef -m ./solution_token/neo.manifest.json -w ../wallets/wallet1.json -r http://localhost:30333 
 neo-go contract generate-rpcwrapper -c ./solution_token/neo-go.yml -m ./solution_token/neo.manifest.json -o ../backend/wrappers/solutiontoken/main.go --hash $sol_hash
 
-6a8f3f5454ca4f3830f2218dde3fd96723e46ecc
-eabc5a8ad1d235c2bef03097c914a2c6c144213e
+98a430c512bffd4f14724154b257373ecf5eb6a2
+8b76f06b9fcd9a1e49f7bfafc25c3bd82c13bb7f
 
 

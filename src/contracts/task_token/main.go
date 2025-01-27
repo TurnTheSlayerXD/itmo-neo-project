@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/interop/util"
 )
 
-// Prefixes used for contract data storage.
 const (
 	balancePrefix = "b"
 	accountPrefix = "a"
@@ -48,22 +47,18 @@ func _deploy(data interface{}, isUpdate bool) {
 	storage.Put(ctx, totalSupplyKey, 0)
 }
 
-// Symbol returns token symbol, it's NICENAMES.
 func Symbol() string {
 	return "TASK"
 }
 
-// Decimals returns token decimals, this NFT is non-divisible, so it's 0.
 func Decimals() int {
 	return 0
 }
 
-// TotalSupply is a contract method that returns the number of tokens minted.
 func TotalSupply() int {
 	return storage.Get(storage.GetReadOnlyContext(), totalSupplyKey).(int)
 }
 
-// BalanceOf returns the number of tokens owned by the specified address.
 func BalanceOf(holder interop.Hash160) int {
 	if len(holder) != 20 {
 		panic("bad owner address")
@@ -72,13 +67,11 @@ func BalanceOf(holder interop.Hash160) int {
 	return getBalanceOf(ctx, mkBalanceKey(holder))
 }
 
-// OwnerOf returns the owner of the specified token.
 func OwnerOf(token []byte) interop.Hash160 {
 	ctx := storage.GetReadOnlyContext()
 	return getNFT(ctx, token).Owner
 }
 
-// Properties returns properties of the given NFT.
 func Properties(token []byte) map[string]string {
 	ctx := storage.GetReadOnlyContext()
 	nft := getNFT(ctx, token)
@@ -95,7 +88,6 @@ func Properties(token []byte) map[string]string {
 	return result
 }
 
-// Tokens returns an iterator that contains all the tokens minted by the contract.
 func Tokens() iterator.Iterator {
 	ctx := storage.GetReadOnlyContext()
 	key := []byte(tokenPrefix)
@@ -140,8 +132,6 @@ func TokensOfList(holder interop.Hash160) [][]byte {
 	return res
 }
 
-// Transfer token from its owner to another user, notice that it only has three
-// parameters because token owner can be deduced from token ID itself.
 func Transfer(to interop.Hash160, token []byte, data any) bool {
 	if len(to) != 20 {
 		panic("invalid 'to' address")
@@ -192,7 +182,6 @@ func setNFT(ctx storage.Context, token []byte, item NFTTask) {
 	storage.Put(ctx, key, val)
 }
 
-// postTransfer emits Transfer event and calls onNEP11Payment if needed.
 func postTransfer(from interop.Hash160, to interop.Hash160, token []byte, data any) {
 	runtime.Notify("Transfer", from, to, 1, token)
 	if management.GetContract(to) != nil {
@@ -200,9 +189,6 @@ func postTransfer(from interop.Hash160, to interop.Hash160, token []byte, data a
 	}
 }
 
-// OnNEP17Payment mints tokens if at least 10 GAS is provided. You don't call
-// this method directly, instead it's called by GAS contract when you transfer
-// GAS from your address to the address of this NFT contract.
 func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -212,9 +198,8 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	}()
 
 	callingHash := runtime.GetCallingScriptHash()
-	if !callingHash.Equals(gas.Hash) {
-		panic("only GAS is accepted")
-	}
+	util.AssertMsg(callingHash.Equals(gas.Hash), "only GAS is accepted")
+
 	dict := std.JSONDeserialize(data.([]byte)).(map[string]any)
 
 	taskData := &struct {
@@ -227,24 +212,21 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 		Description: dict["description"].(string),
 	}
 
-	if len(taskData.Name) < 3 {
-		panic("name length at least 3 character")
-	}
+	util.AssertMsg(len(taskData.Name) > 3, "name length at least 3 character")
 
 	price := 10_0000_0000
 
-	if amount < price {
-		panic("insufficient GAS for minting NFT")
-	} else if amount > price {
+	util.AssertMsg(amount >= price, "insufficient GAS for minting NFT")
+
+	if amount > price {
 		gas.Transfer(runtime.GetExecutingScriptHash(),
 			runtime.GetCallingScriptHash(), amount-price, nil)
 	}
 
 	ctx := storage.GetContext()
 	tokenID := crypto.Sha256([]byte(taskData.Name))
-	if nftExists(ctx, tokenID) {
-		panic("token already exists")
-	}
+
+	util.AssertMsg(!nftExists(ctx, tokenID), "token already exists")
 
 	nft := NFTTask{
 		ID:            tokenID,
@@ -286,28 +268,21 @@ func ChangeTaskAssesment(tokenid []byte, newAssesmentNum int) {
 		"Could not reward for task assesment")
 }
 
-// mkAccountPrefix creates DB key-prefix for the account tokens specified
-// by concatenating accountPrefix and account address.
 func mkAccountPrefix(holder interop.Hash160) []byte {
 	res := []byte(accountPrefix)
 	return append(res, holder...)
 }
 
-// mkBalanceKey creates DB key for the account specified by concatenating balancePrefix
-// and account address.
 func mkBalanceKey(holder interop.Hash160) []byte {
 	res := []byte(balancePrefix)
 	return append(res, holder...)
 }
 
-// mkTokenKey creates DB key for the token specified by concatenating tokenPrefix
-// and token ID.
 func mkTokenKey(tokenID []byte) []byte {
 	res := []byte(tokenPrefix)
 	return append(res, tokenID...)
 }
 
-// getBalanceOf returns the balance of an account using database key.
 func getBalanceOf(ctx storage.Context, balanceKey []byte) int {
 	val := storage.Get(ctx, balanceKey)
 	if val != nil {
@@ -316,7 +291,6 @@ func getBalanceOf(ctx storage.Context, balanceKey []byte) int {
 	return 0
 }
 
-// addToBalance adds an amount to the account balance. Amount can be negative.
 func addToBalance(ctx storage.Context, holder interop.Hash160, amount int) {
 	key := mkBalanceKey(holder)
 	old := getBalanceOf(ctx, key)
@@ -328,13 +302,11 @@ func addToBalance(ctx storage.Context, holder interop.Hash160, amount int) {
 	}
 }
 
-// addToken adds a token to the account.
 func addToken(ctx storage.Context, holder interop.Hash160, token []byte) {
 	key := mkAccountPrefix(holder)
 	storage.Put(ctx, append(key, token...), token)
 }
 
-// removeToken removes the token from the account.
 func removeToken(ctx storage.Context, holder interop.Hash160, token []byte) {
 	key := mkAccountPrefix(holder)
 	storage.Delete(ctx, append(key, token...))

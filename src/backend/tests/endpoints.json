@@ -52,7 +52,7 @@ output : {
 }
 
 
-endpoint : http: //localhost:8040/get_all_solutions
+endpoint : http: //localhost:8040/get_all_tasks
 input: {
     "wallet": {
         ...
@@ -74,7 +74,7 @@ output : [
 
 
 
-endpoint: http: //localhost:8040/get_all_tasks
+endpoint: http: //localhost:8040/get_all_solutions
 
 input : {
     "wallet": {

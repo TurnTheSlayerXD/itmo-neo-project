@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/interop/util"
 )
 
-// Prefixes used for contract data storage.
 const (
 	balancePrefix = "b"
 	accountPrefix = "a"
@@ -23,9 +22,7 @@ const (
 	totalSupplyKey = 's'
 )
 
-var contractTask_hash = interop.Hash160{0xcc, 0x6e, 0xe4, 0x23, 0x67, 0xd9, 0x3f, 0xde, 0x8d, 0x21, 0xf2, 0x30, 0x38, 0x4f, 0xca, 0x54, 0x54, 0x3f, 0x8f, 0x6a}
-
-
+var contractTask_hash = interop.Hash160{0xa2, 0xb6, 0x5e, 0xcf, 0x3e, 0x37, 0x57, 0xb2, 0x54, 0x41, 0x72, 0x14, 0x4f, 0xfd, 0xbf, 0x12, 0xc5, 0x30, 0xa4, 0x98}
 
 type NFTSolution struct {
 	ID            []byte
@@ -47,22 +44,18 @@ func _deploy(data any, isUpdate bool) {
 	storage.Put(ctx, totalSupplyKey, 0)
 }
 
-// Symbol returns token symbol, it's NICENAMES.
 func Symbol() string {
 	return "SOLUTION"
 }
 
-// Decimals returns token decimals, this NFT is non-divisible, so it's 0.
 func Decimals() int {
 	return 0
 }
 
-// TotalSupply is a contract method that returns the number of tokens minted.
 func TotalSupply() int {
 	return storage.Get(storage.GetReadOnlyContext(), totalSupplyKey).(int)
 }
 
-// BalanceOf returns the number of tokens owned by the specified address.
 func BalanceOf(holder interop.Hash160) int {
 	if len(holder) != 20 {
 		panic("bad owner address")
@@ -71,13 +64,11 @@ func BalanceOf(holder interop.Hash160) int {
 	return getBalanceOf(ctx, mkBalanceKey(holder))
 }
 
-// OwnerOf returns the owner of the specified token.
 func OwnerOf(token []byte) interop.Hash160 {
 	ctx := storage.GetReadOnlyContext()
 	return getNFT(ctx, token).Owner
 }
 
-// Properties returns properties of the given NFT.
 func Properties(token []byte) map[string]string {
 	ctx := storage.GetReadOnlyContext()
 	nft := getNFT(ctx, token)
@@ -93,7 +84,6 @@ func Properties(token []byte) map[string]string {
 	return result
 }
 
-// Tokens returns an iterator that contains all the tokens minted by the contract.
 func Tokens() iterator.Iterator {
 	ctx := storage.GetReadOnlyContext()
 	key := []byte(tokenPrefix)
@@ -113,7 +103,6 @@ func TokensList() []string {
 	return keys
 }
 
-// TokensOf returns an iterator with all tokens held by the specified address.
 func TokensOf(holder interop.Hash160) iterator.Iterator {
 	if len(holder) != 20 {
 		panic("bad owner address")
@@ -208,7 +197,7 @@ func OnNEP17Payment(from interop.Hash160, amount int, data any) {
 	if !callingHash.Equals(gas.Hash) {
 		panic("only GAS is accepted")
 	}
-	
+
 	dict := std.JSONDeserialize(data.([]byte)).(map[string]any)
 	solutionData := &struct {
 		TaskId        []byte

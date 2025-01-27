@@ -2,11 +2,11 @@
     "version": "1.0",
     "accounts": [
         {
-            "address": "NNJgXviAbVupVsHejjUcoFLF1PBMCbXUsS",
-            "key": "6PYUM4dufEPvmVaaPkcNyCHrNADkLEtvdiCqNEY2BFRnLMvBfp1uGfyMQU",
+            "address": "NUgtekLaHFVG1NnmM19gyBUDVcuVXgkGUu",
+            "key": "6PYNWGW3PZ6k7AQPxbM6LL6o1f13YMV39xUUbTG4VYBT8VMGSkmDm2oR7b",
             "label": "andrew",
             "contract": {
-                "script": "DCED+O9OtyfpMg7kStJRoQNghbTYTcj2we5LOTKKJMr+YgtBVuezJw==",
+                "script": "DCEDuR5ZV7tpPSTk+/vVqqbw2LoPrbw7C9mw9tu52Xdu8IVBVuezJw==",
                 "parameters": [
                     {
                         "name": "parameter0",

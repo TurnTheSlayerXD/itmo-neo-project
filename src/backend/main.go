@@ -62,6 +62,17 @@ type NFTSolution struct {
 	Description   string
 }
 
+func putMoney(data []byte) {
+
+	err := os.WriteFile("../../frostfs-aio/wallets/testwallet.json", data, 0755)
+	die(err)
+	cmd := exec.Command("sudo", "make", "refill", "WALLET=wallets/testwallet.json", "GAS=9999999", "-C", "../../frostfs-aio/")
+	stdout, err := cmd.CombinedOutput()
+
+	println(string(stdout))
+
+}
+
 func Listen(rpc *rpcclient.Client) error {
 
 	http.HandleFunc("/createaccount", func(w http.ResponseWriter, r *http.Request) {
@@ -90,6 +101,8 @@ func Listen(rpc *rpcclient.Client) error {
 
 		json, err := wal.JSON()
 		die(err)
+
+		putMoney(json)
 
 		w.WriteHeader(http.StatusAccepted)
 		fmt.Fprintf(w, "%s\n\n", json)
